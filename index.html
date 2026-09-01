@@ -215,62 +215,37 @@
   }
 
   function calcularPresupuesto() {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const currentDay = now.getDate();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentDay = now.getDate();
 
-    const gastosMesActual = allGastos.filter(g => {
-      const d = new Date(g.fecha);
-      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-    });
+  // Filtra los gastos del mes en curso
+  const gastosMesActual = allGastos.filter(g => {
+    const d = new Date(g.fecha);
+    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+  });
 
-    const totalGastadoMes = gastosMesActual.reduce((acc, g) => acc + Number(g.monto), 0);
-    const presupuestoPermitidoHastaHoy = currentDay * 50;
-    const disponibleHoy = presupuestoPermitidoHastaHoy - totalGastadoMes;
-    const ahorroActual = presupuestoPermitidoHastaHoy - totalGastadoMes;
+  const totalGastadoMes = gastosMesActual.reduce((acc, g) => acc + Number(g.monto), 0);
+  
+  // Asignación de 50 soles diarios acumulados hasta hoy
+  const presupuestoPermitidoHastaHoy = currentDay * 50;
+  
+  // Si te sobregiraste ayer, el total gastado resta del acumulado y reduce el cupo de hoy
+  const disponibleHoy = presupuestoPermitidoHastaHoy - totalGastadoMes;
+  
+  // Ahorro neto real acumulado en lo que va del mes
+  const ahorroActual = disponibleHoy > 0 ? disponibleHoy : 0;
 
-    const dispEl = document.getElementById('disp-hoy');
-    dispEl.innerText = `S/ ${disponibleHoy.toFixed(2)}`;
-    dispEl.className = disponibleHoy >= 0 ? 'budget-amount' : 'budget-amount negative';
+  const dispEl = document.getElementById('disp-hoy');
+  dispEl.innerText = `S/ ${disponibleHoy.toFixed(2)}`;
+  
+  // Si está en negativo o cero, resalta visualmente la alerta
+  dispEl.className = disponibleHoy >= 0 ? 'budget-amount' : 'budget-amount negative';
 
-    document.getElementById('total-mes').innerText = `S/ ${totalGastadoMes.toFixed(2)}`;
-    document.getElementById('ahorro-mes').innerText = `S/ ${Math.max(0, ahorroActual).toFixed(2)}`;
-  }
-
-  function populateMonthSelectors() {
-    const selectorDash = document.getElementById('month-selector');
-    const selectorDesglose = document.getElementById('desglose-month-selector');
-    const months = {};
-    
-    allGastos.forEach(g => {
-      const d = new Date(g.fecha);
-      if (!isNaN(d.getTime())) {
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        months[key] = d.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
-      }
-    });
-
-    const now = new Date();
-    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    months[currentKey] = now.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
-
-    const sortedKeys = Object.keys(months).sort().reverse();
-
-    [selectorDash, selectorDesglose].forEach(sel => {
-      const currentVal = sel.value;
-      sel.innerHTML = '';
-      sortedKeys.forEach(k => {
-        const opt = document.createElement('option');
-        opt.value = k;
-        opt.innerText = months[k].toUpperCase();
-        sel.appendChild(opt);
-      });
-      if (currentVal && sortedKeys.includes(currentVal)) {
-        sel.value = currentVal;
-      }
-    });
-  }
+  document.getElementById('total-mes').innerText = `S/ ${totalGastadoMes.toFixed(2)}`;
+  document.getElementById('ahorro-mes').innerText = `S/ ${ahorroActual.toFixed(2)}`;
+}
 
   function renderDesgloseDiario() {
     const container = document.getElementById('desglose-container');
@@ -356,72 +331,82 @@
   }
 
   function renderCharts() {
-    const selector = document.getElementById('month-selector');
-    if (!selector.value) return;
+  const selector = document.getElementById('month-selector');
+  if (!selector.value) return;
 
-    const [year, month] = selector.value.split('-').map(Number);
-    const filtered = allGastos.filter(g => {
-      const d = new Date(g.fecha);
-      return d.getFullYear() === year && (d.getMonth() + 1) === month;
-    });
+  const [year, month] = selector.value.split('-').map(Number);
+  const filtered = allGastos.filter(g => {
+    const d = new Date(g.fecha);
+    return d.getFullYear() === year && (d.getMonth() + 1) === month;
+  });
 
-    const totalGasto = filtered.reduce((acc, g) => acc + Number(g.monto), 0);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const presupuestoTotalMes = daysInMonth * 50;
-    const ahorroMes = Math.max(0, presupuestoTotalMes - totalGasto);
+  const totalGasto = filtered.reduce((acc, g) => acc + Number(g.monto), 0);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const presupuestoTotalMes = daysInMonth * 50;
+  
+  // El ahorro final del mes considera el balance global frente a la cuota total del mes
+  const ahorroMes = Math.max(0, presupuestoTotalMes - totalGasto);
 
-    document.getElementById('dash-gastado').innerText = `S/ ${totalGasto.toFixed(2)}`;
-    document.getElementById('dash-ahorro').innerText = `S/ ${ahorroMes.toFixed(2)}`;
+  document.getElementById('dash-gastado').innerText = `S/ ${totalGasto.toFixed(2)}`;
+  document.getElementById('dash-ahorro').innerText = `S/ ${ahorroMes.toFixed(2)}`;
 
-    const cats = {};
-    filtered.forEach(g => {
-      cats[g.categoria] = (cats[g.categoria] || 0) + Number(g.monto);
-    });
+  const cats = {};
+  filtered.forEach(g => {
+    cats[g.categoria] = (cats[g.categoria] || 0) + Number(g.monto);
+  });
 
-    const daily = {};
-    filtered.forEach(g => {
-      const day = new Date(g.fecha).getDate();
-      daily[day] = (daily[day] || 0) + Number(g.monto);
-    });
+  const daily = {};
+  filtered.forEach(g => {
+    const day = new Date(g.fecha).getDate();
+    daily[day] = (daily[day] || 0) + Number(g.monto);
+  });
 
-    if (catChartInstance) catChartInstance.destroy();
-    if (dayChartInstance) dayChartInstance.destroy();
+  if (catChartInstance) catChartInstance.destroy();
+  if (dayChartInstance) dayChartInstance.destroy();
 
-    const ctxCat = document.getElementById('catChart').getContext('2d');
-    catChartInstance = new Chart(ctxCat, {
-      type: 'doughnut',
-      data: {
-        labels: Object.keys(cats),
-        datasets: [{
-          data: Object.values(cats),
-          backgroundColor: ['#38bdf8', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#64748b']
-        }]
-      },
-      options: { plugins: { title: { display: true, text: 'Distribución por Categorías', color: '#f8fafc' }, legend: { labels: { color: '#94a3b8' } } } }
-    });
-
-    const daysLabels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-    const dayData = daysLabels.map(d => daily[d] || 0);
-
-    const ctxDay = document.getElementById('dayChart').getContext('2d');
-    dayChartInstance = new Chart(ctxDay, {
-      type: 'bar',
-      data: {
-        labels: daysLabels,
-        datasets: [
-          { label: 'Gasto Diario (S/)', data: dayData, backgroundColor: '#38bdf8' },
-          { label: 'Meta Diaria (S/ 50)', data: Array(daysInMonth).fill(50), type: 'line', borderColor: '#f59e0b', borderDash: [4, 4], fill: false }
-        ]
-      },
-      options: {
-        scales: {
-          x: { ticks: { color: '#94a3b8' } },
-          y: { ticks: { color: '#94a3b8' } }
-        },
-        plugins: { title: { display: true, text: 'Gastos Diarios vs Meta (S/ 50)', color: '#f8fafc' }, legend: { labels: { color: '#94a3b8' } } }
+  const ctxCat = document.getElementById('catChart').getContext('2d');
+  catChartInstance = new Chart(ctxCat, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(cats),
+      datasets: [{
+        data: Object.values(cats),
+        backgroundColor: ['#38bdf8', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#64748b']
+      }]
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Distribución por Categorías', color: '#f8fafc' },
+        legend: { labels: { color: '#94a3b8' } }
       }
-    });
-  }
+    }
+  });
+
+  const daysLabels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const dayData = daysLabels.map(d => daily[d] || 0);
+
+  const ctxDay = document.getElementById('dayChart').getContext('2d');
+  dayChartInstance = new Chart(ctxDay, {
+    type: 'bar',
+    data: {
+      labels: daysLabels,
+      datasets: [
+        { label: 'Gasto Diario (S/)', data: dayData, backgroundColor: '#38bdf8' },
+        { label: 'Meta Diaria (S/ 50)', data: Array(daysInMonth).fill(50), type: 'line', borderColor: '#f59e0b', borderDash: [4, 4], fill: false }
+      ]
+    },
+    options: {
+      scales: {
+        x: { ticks: { color: '#94a3b8' } },
+        y: { ticks: { color: '#94a3b8' } }
+      },
+      plugins: {
+        title: { display: true, text: 'Gastos Diarios vs Meta (S/ 50)', color: '#f8fafc' },
+        legend: { labels: { color: '#94a3b8' } }
+      }
+    }
+  });
+}
 
   async function enviarGasto() {
     const monto = document.getElementById('monto').value;
